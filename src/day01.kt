@@ -10,21 +10,24 @@ class Dial {
 
 	fun rotate(rotation: Rotation): Int {
 		val extraRotations = rotation.distance / 100
-		if (extraRotations > 0) {
-			this.totalRotationsOverZero += extraRotations
-		}
+		this.totalRotationsOverZero += extraRotations
 		val remainingDistance = rotation.distance % 100
-		if (value != 0) {
-			if (rotation.direction == 'L' && remainingDistance >= value) {
-				this.totalRotationsOverZero++
-			} else if (rotation.direction == 'R' && remainingDistance + value >= 100) {
-				this.totalRotationsOverZero++
+		when (rotation.direction) {
+			'L' -> {
+				if (value != 0 && remainingDistance >= value) {
+					this.totalRotationsOverZero++
+				}
+				value = (value - remainingDistance + 100) % 100
 			}
-		}
-		if (rotation.direction == 'L') {
-			value = (value - remainingDistance + 100) % 100
-		} else if (rotation.direction == 'R') {
-			value = (value + remainingDistance) % 100
+
+			'R' -> {
+				if (value != 0 && remainingDistance + value >= 100) {
+					this.totalRotationsOverZero++
+				}
+				value = (value + remainingDistance) % 100
+			}
+
+			else -> throw IllegalArgumentException("Invalid rotation direction: ${rotation.direction}")
 		}
 		if (value !in 0..<100) {
 			throw IllegalStateException("Dial value out of bounds: $value")
@@ -39,20 +42,12 @@ fun preProcessData(lines: List<String>): List<Rotation> {
 
 fun part1(rotations: List<Rotation>): Int {
 	val dial = Dial()
-	var timesDialZero = 0
-	for (rotation in rotations) {
-		if (dial.rotate(rotation) == 0) {
-			timesDialZero++
-		}
-	}
-	return timesDialZero
+	return rotations.map { dial.rotate(it) }.count { it == 0 }
 }
 
 fun part2(rotations: List<Rotation>): Int {
 	val dial = Dial()
-	for (rotation in rotations) {
-		dial.rotate(rotation)
-	}
+	rotations.forEach(dial::rotate)
 	return dial.totalRotationsOverZero
 }
 
