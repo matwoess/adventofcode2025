@@ -3,62 +3,57 @@ package day02
 import java.io.File
 
 data class IdRange(val start: Long, val end: Long) {
-	fun getIds(): List<Long> {
-		val ids = mutableListOf<Long>()
-		for (id in start..end) {
-			ids.add(id)
-		}
-		return ids
-	}
+	fun getIds(): List<Long> = (start..end).toList()
+}
 
-	fun getInvalidIds(): List<Long> {
-		val allIds = getIds()
-		val invalidIds = mutableListOf<Long>()
-		for (id in allIds) {
-			val idString = id.toString()
-			if (idString.startsWith("0") || isRepeatingSubstringOfLength(idString, idString.length / 2)) {
-				invalidIds.add(id)
-			}
-		}
-		return invalidIds
-	}
-
-	fun isRepeatingSubstringOfLength(s: String, length: Int): Boolean {
-		if (length==0 || s.length % length != 0) {
-			return false
-		}
-		val substring = s.take(length)
-		var index = length
-		while (index < s.length) {
-			if (s.substring(index, index + length) != substring) {
-				return false
-			}
-			index += length
-		}
-		return true
-	}
-
-	fun anySubstringRepeats(s: String): Boolean {
-		for (length in s.length / 2 downTo 1) {
-			if (isRepeatingSubstringOfLength(s, length)) {
-				return true
-			}
-		}
+fun isRepeatingSubstringOfLength(s: String, length: Int): Boolean {
+	if (length == 0 || s.length % length != 0) {
 		return false
 	}
+	val substring = s.take(length)
+	for (index in length until s.length step length) {
+		if (s.substring(index, index + length) != substring) {
+			return false
+		}
+	}
+	return true
+}
 
-	fun getInvalidIds2(): List<Long> {
-		val allIds = getIds()
-		val invalidIds = mutableListOf<Long>()
-		for (id in allIds) {
+fun anySubstringRepeats(s: String): Boolean {
+	for (length in s.length / 2 downTo 1) {
+		if (isRepeatingSubstringOfLength(s, length)) {
+			return true
+		}
+	}
+	return false
+}
+
+fun part1(ranges: List<IdRange>): Long {
+	var totalInvalidIdSum = 0L
+	for (range in ranges) {
+		for (id in range.getIds()) {
 			val idString = id.toString()
-			if (idString.startsWith("0") || anySubstringRepeats(idString)) {
-				invalidIds.add(id)
+			if (isRepeatingSubstringOfLength(idString, idString.length / 2)) {
+				totalInvalidIdSum += id
 			}
 		}
-		return invalidIds
 	}
+	return totalInvalidIdSum
 }
+
+fun part2(ranges: List<IdRange>): Long {
+	var totalInvalidIdSum = 0L
+	for (range in ranges) {
+		for (id in range.getIds()) {
+			val idString = id.toString()
+			if (anySubstringRepeats(idString)) {
+				totalInvalidIdSum += id
+			}
+		}
+	}
+	return totalInvalidIdSum
+}
+
 
 fun preProcessData(input: String): List<IdRange> {
 	return input.split(",").map { rangeString: String ->
@@ -66,27 +61,6 @@ fun preProcessData(input: String): List<IdRange> {
 		IdRange(start.toLong(), end.toLong())
 	}
 }
-
-fun part1(ranges: List<IdRange>): Long {
-	var invalidIdSum = 0L
-	for (range in ranges) {
-		val invalidIds = range.getInvalidIds()
-		invalidIdSum += invalidIds.sum()
-	}
-	return invalidIdSum
-}
-
-fun part2(ranges: List<IdRange>): Long {
-	var invalidIdSum = 0L
-	for (range in ranges) {
-		println("Processing range: ${range.start}-${range.end}")
-		val invalidIds = range.getInvalidIds2()
-		println(" - found ${invalidIds.size} invalid IDs")
-		invalidIdSum += invalidIds.sum()
-	}
-	return invalidIdSum
-}
-
 
 fun main() {
 	val input = File("inputs/day02.txt").readText()
