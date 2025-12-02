@@ -11,47 +11,21 @@ fun isRepeatingSubstringOfLength(s: String, length: Int): Boolean {
 		return false
 	}
 	val substring = s.take(length)
-	for (index in length until s.length step length) {
-		if (s.substring(index, index + length) != substring) {
-			return false
-		}
-	}
-	return true
+	return s.chunked(length).all(substring::equals)
 }
 
-fun anySubstringRepeats(s: String): Boolean {
-	for (length in s.length / 2 downTo 1) {
-		if (isRepeatingSubstringOfLength(s, length)) {
-			return true
-		}
-	}
-	return false
+fun anySubstringRepeats(s: String) = (s.length / 2 downTo 1).any { isRepeatingSubstringOfLength(s, it) }
+
+fun part1(ranges: List<IdRange>): Long = ranges.sumOf { range ->
+	range.getIds()
+		.filter { isRepeatingSubstringOfLength(it.toString(), it.toString().length / 2) }
+		.sum()
 }
 
-fun part1(ranges: List<IdRange>): Long {
-	var totalInvalidIdSum = 0L
-	for (range in ranges) {
-		for (id in range.getIds()) {
-			val idString = id.toString()
-			if (isRepeatingSubstringOfLength(idString, idString.length / 2)) {
-				totalInvalidIdSum += id
-			}
-		}
-	}
-	return totalInvalidIdSum
-}
-
-fun part2(ranges: List<IdRange>): Long {
-	var totalInvalidIdSum = 0L
-	for (range in ranges) {
-		for (id in range.getIds()) {
-			val idString = id.toString()
-			if (anySubstringRepeats(idString)) {
-				totalInvalidIdSum += id
-			}
-		}
-	}
-	return totalInvalidIdSum
+fun part2(ranges: List<IdRange>): Long = ranges.sumOf { range ->
+	range.getIds()
+		.filter { anySubstringRepeats(it.toString()) }
+		.sum()
 }
 
 
