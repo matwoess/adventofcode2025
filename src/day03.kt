@@ -2,71 +2,45 @@ package day03
 
 import java.io.File
 
-
-fun preProcessData(banks: List<String>): List<String> {
-	return banks
-}
-
 fun part1(banks: List<String>): Long {
 	val numbers = mutableListOf<Long>()
 	for (bank in banks) {
-		val indices = mutableListOf<Int>()
-		val highestIndex = bank.indexOfFirst { it == bank.max() }
-		indices.add(highestIndex)
-		findLargestIndices(bank, indices, currIndex = highestIndex, amount = 1)
-		indices.sort()
-		val array = bank.toCharArray()
-		val builder = StringBuilder()
-		for (index in indices) {
-			builder.append(array[index])
-		}
-		println(builder.toString())
-		numbers.add(builder.toString().toLong())
+		val result = maxOrderedSubsequence(bank, 2)
+		numbers.add(result.toLong())
 	}
 	return numbers.sum()
 }
 
-private fun findLargestIndices(bank: String, indices: MutableList<Int>, currIndex: Int, amount: Int) {
-	if (amount == 0) return
-	var newIndex = bank.withIndex()
-		.filter { !indices.contains(it.index) }
-		.maxByOrNull { it.value }?.index
-	if (newIndex != null) {
-		indices.add(newIndex)
-	} else {
-		newIndex = bank.withIndex()
-			.filter { !indices.contains(it.index) }
-			.maxByOrNull { it.value }?.index!!
-		indices.add(newIndex)
+
+private fun maxOrderedSubsequence(bank: String, amountLeft: Int): String {
+	val length = bank.length
+	val sb = StringBuilder()
+	var start = 0
+	for (pos in 0 until amountLeft) {
+		val end = length - (amountLeft - pos)
+		var bestIndex = start
+		for (i in start..end) {
+			if (bank[i] > bank[bestIndex]) bestIndex = i
+		}
+		sb.append(bank[bestIndex])
+		start = bestIndex + 1
 	}
-	findLargestIndices(bank, indices, newIndex, amount - 1)
+	return sb.toString()
 }
 
 fun part2(banks: List<String>): Long {
 	val numbers = mutableListOf<Long>()
 	for (bank in banks) {
-		val indices = mutableListOf<Int>()
-		val highestIndex = bank.indexOfFirst { it == bank.max() }
-		indices.add(highestIndex)
-		findLargestIndices(bank, indices, currIndex = highestIndex, amount = 11)
-		indices.sort()
-		val array = bank.toCharArray()
-		val builder = StringBuilder()
-		for (index in indices) {
-			builder.append(array[index])
-		}
-		println(builder.toString())
-		numbers.add(builder.toString().toLong())
+		val result = maxOrderedSubsequence(bank, 12)
+		numbers.add(result.toLong())
 	}
 	return numbers.sum()
 }
 
-
 fun main() {
-	val input = File("examples/day03.txt").readLines()
-	val data = preProcessData(input)
+	val data = File("inputs/day03.txt").readLines()
 	val answer1 = part1(data)
 	println("Answer 1: $answer1") // 17316
 	val answer2 = part2(data)
-	println("Answer 2: $answer2") // ANSWER
+	println("Answer 2: $answer2") // 171741365473332
 }
