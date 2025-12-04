@@ -1,6 +1,5 @@
 package day04
 
-import util.Direction
 import util.Grid2D
 import java.io.File
 
@@ -9,56 +8,28 @@ fun preProcessData(arrayString: String): Grid2D<Char> {
 	return Grid2D(arrayString, elemDelimiter = "")
 }
 
-fun part1(grid: Grid2D<Char>): Int {
-	println(grid)
-	val aPositions = grid.getPositions()
-		.filter { it.el == '@' }
-		.toList()
-	var validPositions = 0
-	for (aPos in aPositions) {
-		if (isValid(grid, aPos)) {
-			validPositions++
-		}
-	}
-	return validPositions
-}
+private fun forkliftCanAccess(grid: Grid2D<Char>, pos: Grid2D.Position<Char>): Boolean =
+	grid.getAllAdjacentValues(pos).count { '@' == it } < 4
 
-private fun isValid(
-	grid: Grid2D<Char>,
-	aPos: Grid2D.Position<Char>
-): Boolean {
-	val nw = grid.getAdjacentValue(aPos, Direction.NW)
-	val n = grid.getAdjacentValue(aPos, Direction.N)
-	val ne = grid.getAdjacentValue(aPos, Direction.NE)
-	val e = grid.getAdjacentValue(aPos, Direction.E)
-	val se = grid.getAdjacentValue(aPos, Direction.SE)
-	val s = grid.getAdjacentValue(aPos, Direction.S)
-	val sw = grid.getAdjacentValue(aPos, Direction.SW)
-	val w = grid.getAdjacentValue(aPos, Direction.W)
-	return listOf(nw, n, ne, e, se, s, sw, w).count { '@' == it } < 4
-}
+fun part1(grid: Grid2D<Char>): Int =
+	grid.getPositions()
+		.filter { it.el == '@' }
+		.count { forkliftCanAccess(grid, it) }
 
 fun part2(grid: Grid2D<Char>): Int {
 	var grid = grid
 	var removedRolls = 0
-	var cont = true
-	while (cont) {
-		val aPositions = grid.getPositions()
+	while (true) {
+		val toRemove = grid.getPositions()
 			.filter { it.el == '@' }
+			.filter { forkliftCanAccess(grid, it) }
 			.toList()
-		val toRemove = mutableListOf<Grid2D.Position<Char>>()
-		for (aPos in aPositions) {
-			if (isValid(grid, aPos)) {
-				toRemove.add(aPos)
-			}
-		}
 		if (toRemove.isEmpty()) {
-			cont = false
-		} else {
-			removedRolls+= toRemove.size
-			val values = toRemove.map { '.' }
-			grid = grid.copyWithModifications(toRemove, values)
+			break
 		}
+		val values = toRemove.map { '.' }
+		grid = grid.copyWithModifications(toRemove, values)
+		removedRolls += toRemove.size
 	}
 	return removedRolls
 }

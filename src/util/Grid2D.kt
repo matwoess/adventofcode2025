@@ -83,6 +83,17 @@ class Grid2D<T>(input: String, elemDelimiter: String) {
 		return array[y][x]
 	}
 
+	fun getAllAdjacentValues(pos: Position<T>): List<T> {
+		val adjacentValues = mutableListOf<T>()
+		for (dir in Direction.entries) {
+			val value = getAdjacentValue(pos, dir)
+			if (value != null) {
+				adjacentValues.add(value)
+			}
+		}
+		return adjacentValues
+	}
+
 	fun copyWithModification(modifyPosition: Position<Char>, newValue: T): Grid2D<T> {
 		val newArray = array.map { it.toMutableList() }.toMutableList()
 		newArray[modifyPosition.row][modifyPosition.col] = newValue
