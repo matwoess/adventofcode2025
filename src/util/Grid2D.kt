@@ -53,6 +53,10 @@ class Grid2D<T>(input: String, elemDelimiter: String) {
 		return row in 0..<height && col in 0..<width
 	}
 
+	fun getDirectionalValueSequence(row: Int, col: Int, dir: Direction): Sequence<T> {
+		return getDirectionalValueSequence(getPositionAt(row, col), dir)
+	}
+
 	fun getDirectionalValueSequence(pos: Position<T>, dir: Direction): Sequence<T> {
 		var currX = pos.col
 		var currY = pos.row

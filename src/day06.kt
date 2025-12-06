@@ -23,14 +23,14 @@ fun part1(input: String): Long {
 	repeat(lines[0].split(whitespaceRegex).size) {
 		numberLists.add(mutableListOf())
 	}
-	// Populate number lists
+	// Populate number lists (exclude last line with operators)
 	for (line in lines.dropLast(1)) {
 		val values = line.split(whitespaceRegex).map(String::trim).filter(String::isNotBlank)
 		for (i in values.indices) {
 			numberLists[i].add(values[i].toLong())
 		}
 	}
-	// Finalize math problem creation
+	// Finalize math problem creation (last line contains operators)
 	val operators = lines.last().split(whitespaceRegex).map(String::trim).filter(String::isNotBlank)
 	for (i in operators.indices) {
 		mathProblems.add(MathProblem(numberLists[i], operators[i].first())) // first == string to char
@@ -44,20 +44,20 @@ fun part2(input: String): Long {
 	val width = grid.getWidth()
 	val mathProblems = mutableListOf<MathProblem>()
 	val numbers = mutableListOf<Long>()
+	// start reading from last column top to bottom, then move left
 	for (col in width - 1 downTo 0) {
-		val topPosition = grid.getPositionAt(0, col)
-		val num = grid.getDirectionalValueSequence(topPosition, Direction.S).joinToString("").trim()
+		val num = grid.getDirectionalValueSequence(0, col, Direction.S).joinToString("").trim()
 		if (num.isEmpty()) continue
-		var operator: Char
-		if (!num.last().isDigit()) {
-			operator = num.last()
+		if (!num.last().isDigit()) { // operator at the end
+			val operator = num.last()
 			numbers.add(num.dropLast(1).trim().toLong())
-			mathProblems.add(MathProblem(numbers.map { it }, operator))
+			mathProblems.add(MathProblem(numbers.toList(), operator))
 			numbers.clear()
 		} else {
 			numbers.add(num.trim().toLong())
 		}
 	}
+	// Calculate final result
 	return mathProblems.sumOf { it.applyOperation() }
 }
 
