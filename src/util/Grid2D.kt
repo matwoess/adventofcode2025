@@ -29,6 +29,9 @@ class Grid2D<T>(input: String, elemDelimiter: String) {
 		return array.joinToString(separator = "\r\n") { line -> line.joinToString(separator = " ") }
 	}
 
+	fun getHeight(): Int = height
+	fun getWidth(): Int = width
+
 	data class Position<T>(val row: Int, val col: Int, val el: T)
 
 	fun getPositions(): Sequence<Position<T>> {
@@ -40,6 +43,10 @@ class Grid2D<T>(input: String, elemDelimiter: String) {
 				}
 			}
 		}
+	}
+
+	fun getPositionAt(row: Int, col: Int): Position<T> {
+		return Position(row, col, array[row][col])
 	}
 
 	private fun isValidPosition(row: Int, col: Int): Boolean {

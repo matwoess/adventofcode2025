@@ -1,5 +1,7 @@
 package dayXX
 
+import util.Direction
+import util.Grid2D
 import java.io.File
 
 data class MathProblem(val numbers: List<Long>, val operator: Char) {
@@ -39,20 +41,39 @@ fun preProcessData(lines: List<String>): List<MathProblem> {
 }
 
 fun part1(problems: List<MathProblem>): Long {
-	println(problems)
 	return problems.sumOf { it.applyOperation() }
 }
 
-fun part2(problems: List<MathProblem>): Int {
-	return 0
+fun part2(input: String): Long {
+	val grid: Grid2D<Char> = Grid2D(input, elemDelimiter = "")
+	val width = grid.getWidth()
+	val mathProblems = mutableListOf<MathProblem>()
+	val numbers = mutableListOf<Long>()
+	println(grid)
+	for (col in width - 1 downTo 0) {
+		val topPosition = grid.getPositionAt(0, col)
+		val num = grid.getDirectionalValueSequence(topPosition, Direction.S).joinToString("").trim()
+		if (num.isEmpty()) continue
+		var operator: Char
+		if (!num.last().isDigit()) {
+			operator = num.last()
+			numbers.add(num.dropLast(1).trim().toLong())
+			mathProblems.add(MathProblem(numbers.map { it }, operator))
+			numbers.clear()
+		}
+		else {
+			numbers.add(num.trim().toLong())
+		}
+	}
+	return part1(mathProblems)
 }
 
 
 fun main() {
-	val input = File("inputs/day06.txt").readLines()
-	val data = preProcessData(input)
+	val input = File("inputs/day06.txt").readText()
+	val data = preProcessData(input.split("\n"))
 	val answer1 = part1(data)
-	println("Answer 1: $answer1") // ANSWER
-	val answer2 = part2(data)
-	println("Answer 2: $answer2") // ANSWER
+	println("Answer 1: $answer1") // 4805473544166
+	val answer2 = part2(input)
+	println("Answer 2: $answer2") // 8907730960817
 }
