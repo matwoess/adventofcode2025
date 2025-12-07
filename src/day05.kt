@@ -1,4 +1,4 @@
-package dayXX
+package day05
 
 import java.io.File
 

@@ -1,4 +1,4 @@
-package dayXX
+package day06
 
 import util.Direction
 import util.Grid2D
