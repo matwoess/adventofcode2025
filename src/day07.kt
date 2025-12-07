@@ -35,26 +35,36 @@ fun part1(grid: Grid2D<Char>): Int {
 
 fun part2(grid: Grid2D<Char>): Int {
 	val startPoint = grid.getPositions().first { it.el == 'S' }
-	val visitedSet = mutableSetOf<Grid2D.Position<Char>>()
-	visitedSet.add(startPoint)
-	val timelineCount = dfs(grid, startPoint, visitedSet)
+	val visitedMap = mutableMapOf<Grid2D.Position<Char>, Int>()
+	val timelineCount = dfs(grid, startPoint, visitedMap)
 	return timelineCount
 }
 
 private fun getNextSplitPoint(grid: Grid2D<Char>, fromPos: Grid2D.Position<Char>): Grid2D.Position<Char>? =
 	grid.getDirectionalPositionSequence(fromPos, Direction.S).dropWhile { it.el != '^' }.firstOrNull()
 
-fun dfs(grid: Grid2D<Char>, pos: Grid2D.Position<Char>, visited: MutableSet<Grid2D.Position<Char>>) : Int {
+fun dfs(grid: Grid2D<Char>, pos: Grid2D.Position<Char>, visited: MutableMap<Grid2D.Position<Char>, Int>): Int {
 	var timelineCount = 0
 	val splitPoint = getNextSplitPoint(grid, pos) ?: return 1
-	visited.add(splitPoint)
 	val leftBeam = grid.getAdjacentPosition(splitPoint, Direction.W)
 	val rightBeam = grid.getAdjacentPosition(splitPoint, Direction.E)
-	if (leftBeam != null && !visited.contains(leftBeam)) {
-		timelineCount += dfs(grid, leftBeam, visited)
+	if (leftBeam != null) {
+		if (visited.contains(leftBeam)) {
+			timelineCount += visited[leftBeam]!!
+		} else {
+			val pathCount = dfs(grid, leftBeam, visited)
+			visited[leftBeam] = pathCount
+			timelineCount += pathCount
+		}
 	}
-	if (rightBeam != null && !visited.contains(rightBeam)) {
-		timelineCount += dfs(grid, rightBeam, visited)
+	if (rightBeam != null) {
+		if (visited.contains(rightBeam)) {
+			timelineCount += visited[rightBeam]!!
+		} else {
+			val pathCount = dfs(grid, rightBeam, visited)
+			visited[rightBeam] = pathCount
+			timelineCount += pathCount
+		}
 	}
 	return timelineCount
 }
