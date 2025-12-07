@@ -33,9 +33,9 @@ fun part1(grid: Grid2D<Char>): Int {
 	return previousSplits.size
 }
 
-fun part2(grid: Grid2D<Char>): Int {
+fun part2(grid: Grid2D<Char>): Long {
 	val startPoint = grid.getPositions().first { it.el == 'S' }
-	val visitedMap = mutableMapOf<Grid2D.Position<Char>, Int>()
+	val visitedMap = mutableMapOf<Grid2D.Position<Char>, Long>()
 	val timelineCount = dfs(grid, startPoint, visitedMap)
 	return timelineCount
 }
@@ -43,8 +43,8 @@ fun part2(grid: Grid2D<Char>): Int {
 private fun getNextSplitPoint(grid: Grid2D<Char>, fromPos: Grid2D.Position<Char>): Grid2D.Position<Char>? =
 	grid.getDirectionalPositionSequence(fromPos, Direction.S).dropWhile { it.el != '^' }.firstOrNull()
 
-fun dfs(grid: Grid2D<Char>, pos: Grid2D.Position<Char>, visited: MutableMap<Grid2D.Position<Char>, Int>): Int {
-	var timelineCount = 0
+fun dfs(grid: Grid2D<Char>, pos: Grid2D.Position<Char>, visited: MutableMap<Grid2D.Position<Char>, Long>): Long {
+	var timelineCount = 0L
 	val splitPoint = getNextSplitPoint(grid, pos) ?: return 1
 	val leftBeam = grid.getAdjacentPosition(splitPoint, Direction.W)
 	val rightBeam = grid.getAdjacentPosition(splitPoint, Direction.E)
@@ -71,10 +71,10 @@ fun dfs(grid: Grid2D<Char>, pos: Grid2D.Position<Char>, visited: MutableMap<Grid
 
 
 fun main() {
-	val input = File("examples/day07.txt").readText()
+	val input = File("inputs/day07.txt").readText()
 	val data = preProcessData(input)
 	val answer1 = part1(data)
-	println("Answer 1: $answer1") // ANSWER
+	println("Answer 1: $answer1") // 1602
 	val answer2 = part2(data)
-	println("Answer 2: $answer2") // ANSWER
+	println("Answer 2: $answer2") // 135656430050438
 }
