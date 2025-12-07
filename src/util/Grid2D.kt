@@ -84,6 +84,16 @@ class Grid2D<T>(input: String, elemDelimiter: String) {
 	}
 
 
+	fun getAdjacentPosition(pos: Position<T>, dir: Direction): Position<T>? {
+		val (xOffset, yOffset) = dir.directionalOffset()
+		val x = pos.col + xOffset
+		val y = pos.row + yOffset
+		if (!isValidPosition(y, x)) {
+			return null
+		}
+		return getPositionAt(y, x)
+	}
+
 	fun getAdjacentValue(pos: Position<T>, dir: Direction): T? {
 		val (xOffset, yOffset) = dir.directionalOffset()
 		val x = pos.col + xOffset
