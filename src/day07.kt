@@ -4,66 +4,59 @@ import util.Direction
 import util.Grid2D
 import java.io.File
 
+val SPLIT_DIRECTIONS = arrayOf(Direction.W, Direction.E)
 
 fun preProcessData(input: String) = Grid2D<Char>(input, elemDelimiter = "")
 
 fun part1(grid: Grid2D<Char>): Int {
 	val startPoint = grid.getPositions().first { it.el == 'S' }
+	val uniqueSplitPoints = mutableSetOf<Grid2D.Position<Char>>()
+	val uniqueBeamStarts = mutableSetOf<Grid2D.Position<Char>>()
 	val beams = ArrayDeque<Grid2D.Position<Char>>()
 	beams.add(startPoint)
-	val previousSplits = mutableSetOf<Grid2D.Position<Char>>()
-	val previousBeamStarts = mutableSetOf<Grid2D.Position<Char>>()
 	while (beams.isNotEmpty()) {
 		val beam = beams.removeFirst()
-		val splitPoint = grid.getDirectionalPositionSequence(beam, Direction.S).dropWhile { it.el != '^' }.firstOrNull()
-		if (splitPoint != null) {
-			previousSplits.add(splitPoint)
-			val leftBeam = grid.getAdjacentPosition(splitPoint, Direction.W)
-			val rightBeam = grid.getAdjacentPosition(splitPoint, Direction.E)
-			if (leftBeam != null && previousBeamStarts.contains(leftBeam).not()) {
-				beams.add(leftBeam)
-				previousBeamStarts.add(leftBeam)
-			}
-			if (rightBeam != null && previousBeamStarts.contains(rightBeam).not()) {
-				beams.add(rightBeam)
-				previousBeamStarts.add(rightBeam)
+		val splitPoint = getNextSplitPoint(grid, beam) ?: continue
+		uniqueSplitPoints.add(splitPoint)
+		for (dir in SPLIT_DIRECTIONS) {
+			val beamPos = grid.getAdjacentPosition(splitPoint, dir)
+			if (beamPos != null && !uniqueBeamStarts.contains(beamPos)) {
+				beams.add(beamPos)
+				uniqueBeamStarts.add(beamPos)
 			}
 		}
 	}
-	return previousSplits.size
+	return uniqueSplitPoints.size
 }
 
 fun part2(grid: Grid2D<Char>): Long {
 	val startPoint = grid.getPositions().first { it.el == 'S' }
-	val visitedMap = mutableMapOf<Grid2D.Position<Char>, Long>()
-	val timelineCount = dfs(grid, startPoint, visitedMap)
-	return timelineCount
+	val subTimelineCache = mutableMapOf<Grid2D.Position<Char>, Long>()
+	val totalTimelineCount = calculateTimeVariantsCount(grid, startPoint, subTimelineCache)
+	return totalTimelineCount
 }
 
+// Search for next beam splitter '^' from the given position going downwards
 private fun getNextSplitPoint(grid: Grid2D<Char>, fromPos: Grid2D.Position<Char>): Grid2D.Position<Char>? =
 	grid.getDirectionalPositionSequence(fromPos, Direction.S).dropWhile { it.el != '^' }.firstOrNull()
 
-fun dfs(grid: Grid2D<Char>, pos: Grid2D.Position<Char>, visited: MutableMap<Grid2D.Position<Char>, Long>): Long {
+fun calculateTimeVariantsCount(
+	grid: Grid2D<Char>,
+	pos: Grid2D.Position<Char>,
+	subTimelineCache: MutableMap<Grid2D.Position<Char>, Long>
+): Long {
 	var timelineCount = 0L
 	val splitPoint = getNextSplitPoint(grid, pos) ?: return 1
-	val leftBeam = grid.getAdjacentPosition(splitPoint, Direction.W)
-	val rightBeam = grid.getAdjacentPosition(splitPoint, Direction.E)
-	if (leftBeam != null) {
-		if (visited.contains(leftBeam)) {
-			timelineCount += visited[leftBeam]!!
-		} else {
-			val pathCount = dfs(grid, leftBeam, visited)
-			visited[leftBeam] = pathCount
-			timelineCount += pathCount
-		}
-	}
-	if (rightBeam != null) {
-		if (visited.contains(rightBeam)) {
-			timelineCount += visited[rightBeam]!!
-		} else {
-			val pathCount = dfs(grid, rightBeam, visited)
-			visited[rightBeam] = pathCount
-			timelineCount += pathCount
+	for (dir in SPLIT_DIRECTIONS) {
+		val beamPos = grid.getAdjacentPosition(splitPoint, dir)
+		if (beamPos != null) {
+			if (subTimelineCache.contains(beamPos)) {
+				timelineCount += subTimelineCache[beamPos]!!
+			} else {
+				val pathCount = calculateTimeVariantsCount(grid, beamPos, subTimelineCache)
+				subTimelineCache[beamPos] = pathCount
+				timelineCount += pathCount
+			}
 		}
 	}
 	return timelineCount
