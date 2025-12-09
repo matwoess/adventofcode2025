@@ -75,33 +75,6 @@ fun getUniquePointCombination(tile1: Point2D, tile2: Point2D): Connection {
 	}
 }
 
-private fun getMaxAreaConnection(allPoints: List<Point2D>, excludeConnections: Set<Connection>): Connection? {
-	var maxArea = Long.MIN_VALUE
-	var furthestPair: Connection? = null
-	val allConnections = mutableSetOf<Connection>()
-	for (point1 in allPoints) {
-		for (point2 in allPoints) {
-			if (point1 == point2) {
-				continue
-			}
-			val connection = getUniquePointCombination(point1, point2)
-			if (allConnections.contains(connection)) {
-				continue
-			}
-			if (excludeConnections.contains(connection)) {
-				continue
-			}
-			allConnections.add(connection)
-			val area = connection.from.areaWith(connection.to)
-			if (area > maxArea) {
-				maxArea = area
-				furthestPair = connection
-			}
-		}
-	}
-	return furthestPair
-}
-
 fun preProcessData(lines: List<String>): List<Point2D> {
 	return lines.map {
 		val coordinates = it.split(","); Point2D(
@@ -111,9 +84,24 @@ fun preProcessData(lines: List<String>): List<Point2D> {
 	}
 }
 
+fun getSortedConnections(redTiles: List<Point2D>): List<Connection> {
+	val connections = mutableSetOf<Connection>()
+	for (point1 in redTiles) {
+		for (point2 in redTiles) {
+			if (point1 == point2) {
+				continue
+			}
+			val connection = getUniquePointCombination(point1, point2)
+			connections.add(connection)
+		}
+	}
+	return connections.sortedByDescending { it.from.areaWith(it.to) }
+}
+
+
 fun part1(redTiles: List<Point2D>): Long {
-	val biggestAreaPair = getMaxAreaConnection(redTiles, emptySet())
-	return biggestAreaPair!!.from.areaWith(biggestAreaPair.to)
+	val biggestAreaPair = getSortedConnections(redTiles).first()
+	return biggestAreaPair.from.areaWith(biggestAreaPair.to)
 }
 
 fun part2(redTiles: List<Point2D>): Long {
@@ -122,21 +110,14 @@ fun part2(redTiles: List<Point2D>): Long {
 		perimeter.add(Connection(pair[0], pair[1]))
 	}
 	perimeter.add(Connection(redTiles.last(), redTiles.first()))
-	//println(perimeter.joinToString("\n"))
+	val sortedConnections = getSortedConnections(redTiles)
 	var biggestAreaPairInBounds: Connection? = null
-	val alreadyTried = mutableSetOf<Connection>()
-	while (true) {
-		val nextBiggestPair = getMaxAreaConnection(redTiles, alreadyTried)
-		if (nextBiggestPair == null) {
-			break
-		}
-		//println(nextBiggestPair)
-		alreadyTried.add(nextBiggestPair)
-		val rectangle = nextBiggestPair.toRectangle()
+	for (candidate in sortedConnections) {
+		val rectangle = candidate.toRectangle()
 		//println(rectangle)
 		val allCornersInsidePerimeter = rectangle.allPoints().all { isPointInsidePerimeter(it, perimeter) }
 		if (allCornersInsidePerimeter && rectangle.allEdges().none { it.crossesPerimeter(perimeter) }) {
-			biggestAreaPairInBounds = nextBiggestPair
+			biggestAreaPairInBounds = candidate
 			break
 		}
 	}
