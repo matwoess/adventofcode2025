@@ -99,7 +99,6 @@ fun preProcessData(lines: List<String>): List<Machine> {
 	for (line in lines) {
 		val matchResult = machineInfoRegex.find(line)
 		if (matchResult != null) {
-			println(matchResult.groupValues)
 			val (lightDiagramStr, buttonWiringsStr, joltageRequirementsStr) = matchResult.destructured
 			// Further processing can be done here if needed
 			val lightDiagram = LightDiagram.fromString(lightDiagramStr)
@@ -118,12 +117,7 @@ fun preProcessData(lines: List<String>): List<Machine> {
 }
 
 fun part1(machines: List<Machine>): Int {
-	println(machines.joinToString("\n"))
-	var sum = 0
-	for (machine in machines) {
-		sum += getLowestButtonSequenceSize(machine)
-	}
-	return sum
+	return machines.sumOf { getLowestButtonSequenceSize(it) }
 }
 
 private fun getLowestButtonSequenceSize(machine: Machine): Int {
