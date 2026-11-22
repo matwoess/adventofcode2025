@@ -1,6 +1,8 @@
 package day10
 
 import java.io.File
+import kotlin.math.abs
+import kotlin.math.roundToInt
 
 class LightDiagram(val target: Int, val length: Int) {
 	var indicators: Int = 0
@@ -116,10 +118,6 @@ fun preProcessData(lines: List<String>): List<Machine> {
 	return machines
 }
 
-fun part1(machines: List<Machine>): Int {
-	return machines.sumOf { getLowestButtonSequenceSize(it) }
-}
-
 private fun getLowestButtonSequenceSize(machine: Machine): Int {
 	for (k in 1..machine.buttons.size) {
 		val combinations = machine.buttonCombinationsOfSize(k)
@@ -137,8 +135,159 @@ private fun getLowestButtonSequenceSize(machine: Machine): Int {
 	return Integer.MIN_VALUE
 }
 
-fun part2(data: List<Machine>): Int {
-	return 0
+fun part1(machines: List<Machine>): Int {
+	return machines.sumOf { getLowestButtonSequenceSize(it) }
+}
+
+// Solve 𝐴𝑥 = b for x
+// e.g. [.##.] (3) (1,3) (2) (2,3) (0,2) (0,1) {3,5,4,7}
+// 0*x0 + 0*x1 + 0*x2 + 0*x3 + 1*x4 + 1*x5 = 3
+// 0*x0 + 1*x1 + 0*x2 + 0*x3 + 0*x4 + 1*x5 = 5
+// 0*x0 + 0*x1 + 1*x2 + 1*x3 + 1*x4 + 0*x5 = 4
+// 1*x0 + 1*x1 + 0*x2 + 1*x3 + 0*x4 + 0*x5 = 7
+fun solveLinearEquation(machine: Machine): Int {
+	val mat = buildEquationMatrix(machine)
+	println("mat: ${mat.contentDeepToString()}")
+	val (nRows, nCols) = Pair(machine.joltageRequirements.requiredJoltage.size, machine.buttons.size + 1)
+	val pivotColumns = mutableListOf<Int>()
+	val freeVariables = mutableListOf<Int>()
+	val eps = 1e-6 // Tolerance for floating-point comparisons
+	var pivotRow = 0
+	for (col in machine.buttons.indices) {
+		// Remaining columns are free variables
+		if (pivotRow >= nRows) {
+			freeVariables.add(col)
+			continue
+		}
+		// Find the pivot row for this column.
+		var newPivot = pivotRow
+		for (r in pivotRow + 1 until nRows) {
+			if (abs(mat[r][col]) > abs(mat[newPivot][col])) {
+				newPivot = r
+			}
+		}
+		// If there is no pivot in this column it is a free variable.
+		if (abs(mat[newPivot][col]) < eps) {
+			freeVariables.add(col)
+			continue
+		} else {
+			pivotColumns.add(col)
+		}
+		// Swap the pivot row with the current row if necessary.
+		if (newPivot != pivotRow) {
+			swapRows(mat, newPivot, pivotRow)
+		}
+		// Normalize pivot row to 1
+		if (abs(mat[pivotRow][col] - 1.0) > eps) {
+			val factor = 1 / mat[pivotRow][col]
+			for (c in 0 until nCols) {
+				mat[pivotRow][c] *= factor
+			}
+		}
+
+		// Eliminate all other rows in this column.
+		for (r in 0 until nRows) {
+			if (r == pivotRow) continue
+			val factor = mat[r][col] / mat[pivotRow][col]
+			for (c in 0 until nCols) {
+				mat[r][c] -= factor * mat[pivotRow][c]
+			}
+		}
+		pivotRow++
+	}
+	printMatrix(mat)
+	println("pivotColumns: $pivotColumns")
+	println("freeVariables: $freeVariables")
+	// Get upper bounds of free variables (the maximum number of times each button can be pressed).
+	val upperBounds = freeVariables.map { col ->
+		val buttonWiring = machine.buttons[col].wiring
+		machine.joltageRequirements.requiredJoltage
+			.filterIndexed { r, _ -> (buttonWiring and (1 shl r)) != 0 }
+			.min()
+	}
+	// Brute-force all combinations of free variables.
+	var currentBest = Integer.MAX_VALUE
+	outer@ for (freeCombination in variableCombinations(upperBounds)) {
+		if (freeCombination.sum() >= currentBest) {
+			continue@outer
+		}
+		val solution = IntArray(nCols - 1)
+		for (x in pivotColumns) {
+			val r = pivotColumns.indexOf(x)
+			var b = mat[r][nCols - 1]
+			for ((j, c) in freeVariables.withIndex()) {
+				b -= mat[r][c] * freeCombination[j]
+			}
+			val rounded = b.roundToInt()
+			if (rounded < 0 || abs(b - rounded) > eps) {
+				continue@outer
+			}
+			solution[x] = rounded
+		}
+		for (x in freeVariables) {
+			solution[x] = freeCombination[freeVariables.indexOf(x)]
+		}
+		val totalSteps = solution.sum()
+		if (totalSteps < currentBest) {
+			currentBest = totalSteps
+			println("Found new best solution with $currentBest steps: ${solution.contentToString()}")
+		}
+	}
+	check(currentBest != Integer.MAX_VALUE) { "No solution found for machine: $machine" }
+	return currentBest
+}
+
+/**
+ * Yields every possible combination for x variables and their upper bounds.
+ * The length of the upperBounds list is its amount of variables.
+ */
+fun variableCombinations(upperBounds: List<Int>): Sequence<List<Int>> = sequence {
+	val current = IntArray(upperBounds.size)
+	while (true) {
+		yield(current.toList())
+		var i = upperBounds.lastIndex
+		while (i >= 0 && current[i] == upperBounds[i]) {
+			current[i] = 0
+			i--
+		}
+		if (i < 0) break
+		current[i]++
+	}
+}
+
+
+private fun printMatrix(matrix: Array<DoubleArray>) {
+	for (row in matrix) {
+		println(row.contentToString())
+	}
+}
+
+private fun buildEquationMatrix(machine: Machine): Array<DoubleArray> {
+	val mat = Array(machine.joltageRequirements.requiredJoltage.size) { DoubleArray(machine.buttons.size + 1) }
+	for ((r, joltage) in machine.joltageRequirements.requiredJoltage.withIndex()) {
+		for ((c, button) in machine.buttons.withIndex()) {
+			val isToggling = button.wiring and (1 shl r) != 0
+			mat[r][c] = if (isToggling) 1.0 else 0.0
+		}
+		mat[r][machine.buttons.size] = joltage.toDouble()
+	}
+	return mat
+}
+
+private fun swapRows(mat: Array<DoubleArray>, r1: Int, r2: Int) {
+	val row1 = mat[r1]
+	val row2 = mat[r2]
+	mat[r2] = row1
+	mat[r1] = row2
+}
+
+fun part2(machines: List<Machine>): Long {
+	var totalSteps = 0L
+	for (machine in machines) {
+		val solution = solveLinearEquation(machine)
+		totalSteps += solution
+	}
+	return totalSteps
 }
 
 
@@ -148,5 +297,5 @@ fun main() {
 	val answer1 = part1(data)
 	println("Answer 1: $answer1") // 375
 	val answer2 = part2(data)
-	println("Answer 2: $answer2") // ANSWER
+	println("Answer 2: $answer2") // 15377
 }
