@@ -4,6 +4,8 @@ import java.io.File
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
+const val EPSILON = 1e-6 // Tolerance for floating-point comparisons
+
 class LightDiagram(val target: Int, val length: Int) {
 	var indicators: Int = 0
 
@@ -94,9 +96,8 @@ fun <T> List<T>.combinations(k: Int): List<List<T>> {
 	return tail.combinations(k - 1).map { listOf(head) + it } + tail.combinations(k)
 }
 
-val machineInfoRegex = """\[([.#]+)] ([(\d,) ]+) \{([\d,]+)}""".toRegex()
-
 fun preProcessData(lines: List<String>): List<Machine> {
+	val machineInfoRegex = """\[([.#]+)] ([(\d,) ]+) \{([\d,]+)}""".toRegex()
 	val machines = mutableListOf<Machine>()
 	for (line in lines) {
 		val matchResult = machineInfoRegex.find(line)
@@ -127,7 +128,6 @@ private fun getLowestButtonSequenceSize(machine: Machine): Int {
 				testDiagram.applyButton(button)
 			}
 			if (testDiagram.indicators == machine.lightDiagram.target) {
-				println("Found solution in $k steps for machine: $machine with buttons: $combination")
 				return k
 			}
 		}
@@ -139,65 +139,11 @@ fun part1(machines: List<Machine>): Int {
 	return machines.sumOf { getLowestButtonSequenceSize(it) }
 }
 
-// Solve 𝐴𝑥 = b for x
-// e.g. [.##.] (3) (1,3) (2) (2,3) (0,2) (0,1) {3,5,4,7}
-// 0*x0 + 0*x1 + 0*x2 + 0*x3 + 1*x4 + 1*x5 = 3
-// 0*x0 + 1*x1 + 0*x2 + 0*x3 + 0*x4 + 1*x5 = 5
-// 0*x0 + 0*x1 + 1*x2 + 1*x3 + 1*x4 + 0*x5 = 4
-// 1*x0 + 1*x1 + 0*x2 + 1*x3 + 0*x4 + 0*x5 = 7
-fun solveLinearEquation(machine: Machine): Int {
+fun getMinButtonPresses(machine: Machine): Int {
+	// Simplify equation system using Gauss-Jordan elimination.
 	val mat = buildEquationMatrix(machine)
-	println("mat: ${mat.contentDeepToString()}")
 	val (nRows, nCols) = Pair(machine.joltageRequirements.requiredJoltage.size, machine.buttons.size + 1)
-	val pivotColumns = mutableListOf<Int>()
-	val freeVariables = mutableListOf<Int>()
-	val eps = 1e-6 // Tolerance for floating-point comparisons
-	var pivotRow = 0
-	for (col in machine.buttons.indices) {
-		// Remaining columns are free variables
-		if (pivotRow >= nRows) {
-			freeVariables.add(col)
-			continue
-		}
-		// Find the pivot row for this column.
-		var newPivot = pivotRow
-		for (r in pivotRow + 1 until nRows) {
-			if (abs(mat[r][col]) > abs(mat[newPivot][col])) {
-				newPivot = r
-			}
-		}
-		// If there is no pivot in this column it is a free variable.
-		if (abs(mat[newPivot][col]) < eps) {
-			freeVariables.add(col)
-			continue
-		} else {
-			pivotColumns.add(col)
-		}
-		// Swap the pivot row with the current row if necessary.
-		if (newPivot != pivotRow) {
-			swapRows(mat, newPivot, pivotRow)
-		}
-		// Normalize pivot row to 1
-		if (abs(mat[pivotRow][col] - 1.0) > eps) {
-			val factor = 1 / mat[pivotRow][col]
-			for (c in 0 until nCols) {
-				mat[pivotRow][c] *= factor
-			}
-		}
-
-		// Eliminate all other rows in this column.
-		for (r in 0 until nRows) {
-			if (r == pivotRow) continue
-			val factor = mat[r][col] / mat[pivotRow][col]
-			for (c in 0 until nCols) {
-				mat[r][c] -= factor * mat[pivotRow][c]
-			}
-		}
-		pivotRow++
-	}
-	printMatrix(mat)
-	println("pivotColumns: $pivotColumns")
-	println("freeVariables: $freeVariables")
+	val (pivotColumns, freeVariables) = gaussJordanElimination(mat, nRows, nCols)
 	// Get upper bounds of free variables (the maximum number of times each button can be pressed).
 	val upperBounds = freeVariables.map { col ->
 		val buttonWiring = machine.buttons[col].wiring
@@ -219,7 +165,7 @@ fun solveLinearEquation(machine: Machine): Int {
 				b -= mat[r][c] * freeCombination[j]
 			}
 			val rounded = b.roundToInt()
-			if (rounded < 0 || abs(b - rounded) > eps) {
+			if (rounded < 0 || abs(b - rounded) > EPSILON) {
 				continue@outer
 			}
 			solution[x] = rounded
@@ -230,11 +176,69 @@ fun solveLinearEquation(machine: Machine): Int {
 		val totalSteps = solution.sum()
 		if (totalSteps < currentBest) {
 			currentBest = totalSteps
-			println("Found new best solution with $currentBest steps: ${solution.contentToString()}")
 		}
 	}
 	check(currentBest != Integer.MAX_VALUE) { "No solution found for machine: $machine" }
 	return currentBest
+}
+
+// Solve 𝐴𝑥 = b for x
+// e.g. [.##.] (3) (1,3) (2) (2,3) (0,2) (0,1) {3,5,4,7}
+// 0*x0 + 0*x1 + 0*x2 + 0*x3 + 1*x4 + 1*x5 = 3
+// 0*x0 + 1*x1 + 0*x2 + 0*x3 + 0*x4 + 1*x5 = 5
+// 0*x0 + 0*x1 + 1*x2 + 1*x3 + 1*x4 + 0*x5 = 4
+// 1*x0 + 1*x1 + 0*x2 + 1*x3 + 0*x4 + 0*x5 = 7
+private fun gaussJordanElimination(
+	mat: Array<DoubleArray>,
+	nRows: Int,
+	nCols: Int
+): Pair<MutableList<Int>, MutableList<Int>> {
+	val pivotColumns = mutableListOf<Int>()
+	val freeVariables = mutableListOf<Int>()
+	var pivotRow = 0
+	for (col in 0 until nCols) {
+		// Remaining columns are free variables
+		if (pivotRow >= nRows) {
+			freeVariables.add(col)
+			continue
+		}
+		// Find the pivot row for this column.
+		var newPivot = pivotRow
+		for (r in pivotRow + 1 until nRows) {
+			if (abs(mat[r][col]) > abs(mat[newPivot][col])) {
+				newPivot = r
+			}
+		}
+		// If there is no pivot in this column it is a free variable.
+		if (abs(mat[newPivot][col]) < EPSILON) {
+			freeVariables.add(col)
+			continue
+		} else {
+			pivotColumns.add(col)
+		}
+		// Swap the pivot row with the current row if necessary.
+		if (newPivot != pivotRow) {
+			swapRows(mat, newPivot, pivotRow)
+		}
+		// Normalize pivot row to 1
+		if (abs(mat[pivotRow][col] - 1.0) > EPSILON) {
+			val factor = 1 / mat[pivotRow][col]
+			for (c in 0 until nCols) {
+				mat[pivotRow][c] *= factor
+			}
+		}
+
+		// Eliminate all other rows in this column.
+		for (r in 0 until nRows) {
+			if (r == pivotRow) continue
+			val factor = mat[r][col] / mat[pivotRow][col]
+			for (c in 0 until nCols) {
+				mat[r][c] -= factor * mat[pivotRow][c]
+			}
+		}
+		pivotRow++
+	}
+	return Pair(pivotColumns, freeVariables)
 }
 
 /**
@@ -252,13 +256,6 @@ fun variableCombinations(upperBounds: List<Int>): Sequence<List<Int>> = sequence
 		}
 		if (i < 0) break
 		current[i]++
-	}
-}
-
-
-private fun printMatrix(matrix: Array<DoubleArray>) {
-	for (row in matrix) {
-		println(row.contentToString())
 	}
 }
 
@@ -281,13 +278,8 @@ private fun swapRows(mat: Array<DoubleArray>, r1: Int, r2: Int) {
 	mat[r1] = row2
 }
 
-fun part2(machines: List<Machine>): Long {
-	var totalSteps = 0L
-	for (machine in machines) {
-		val solution = solveLinearEquation(machine)
-		totalSteps += solution
-	}
-	return totalSteps
+fun part2(machines: List<Machine>): Int {
+	return machines.sumOf(::getMinButtonPresses)
 }
 
 
