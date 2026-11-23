@@ -5,83 +5,47 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 
 const val EPSILON = 1e-6 // Tolerance for floating-point comparisons
+private val MACHINE_REGEX = """\[([.#]+)] ([(\d,) ]+) \{([\d,]+)}""".toRegex()
 
-class LightDiagram(val target: Int, val length: Int) {
-	var indicators: Int = 0
-
-	fun applyButton(button: Button) {
-		indicators = indicators xor button.wiring
-	}
-
-	override fun toString(): String {
-		val sb = StringBuilder()
-		for (i in 0 until length) {
-			if ((target and (1 shl i)) != 0) {
-				sb.append('#')
-			} else {
-				sb.append('.')
-			}
-		}
-		return sb.toString()
-	}
-
-	companion object {
-		fun fromString(str: String): LightDiagram {
-			val chars = str.toCharArray()
-			var number = 0
-			for (char in chars.withIndex()) {
-				if (char.value == '.') {
-					continue
-				} else if (char.value == '#') {
-					number += (1 shl char.index)
-				} else throw IllegalArgumentException("Invalid character in wiring string: $char")
-			}
-			return LightDiagram(number, chars.size)
-		}
-	}
-}
-
-data class Button(val wiring: Int) {
-
-	override fun toString(): String {
-		return Integer.toBinaryString(wiring)
-			.reversed()
-			.replace('0', '.')
-			.replace('1', '#')
-	}
-
-	companion object {
-		fun fromString(str: String): Button {
-			val numbers = str.split(",").map { it.trim().toInt() }
-			var number = 0
-			for (num in numbers) {
-				number = number or (1 shl num)
-			}
-			return Button(number)
-		}
-	}
-}
-
-data class JoltageRequirements(val requiredJoltage: List<Int>) {
-	override fun toString(): String {
-		return "{" + requiredJoltage.joinToString(",") + "}"
-	}
-
-	companion object {
-		fun fromString(str: String): JoltageRequirements {
-			return JoltageRequirements(str.split(",").map { it.trim().toInt() })
-		}
-	}
-}
-
-data class Machine(
-	val lightDiagram: LightDiagram,
-	val buttons: List<Button>,
-	val joltageRequirements: JoltageRequirements
+class Machine(
+	val targetLights: Int,
+	val buttons: IntArray,
+	val joltages: IntArray,
 ) {
-	fun buttonCombinationsOfSize(k: Int): List<List<Button>> {
-		return buttons.combinations(k)
+	fun buttonCombinationsOfSize(k: Int): List<List<Int>> {
+		return buttons.toList().combinations(k)
 	}
+}
+
+fun preProcessData(lines: List<String>): List<Machine> {
+	val machines = mutableListOf<Machine>()
+	for (line in lines) {
+		val matchResult = MACHINE_REGEX.matchEntire(line)
+		if (matchResult != null) {
+			val (lightDiagramStr, buttonWiringsStr, joltageRequirementsStr) = matchResult.destructured
+			var lightDiagram = 0
+			lightDiagramStr.forEachIndexed { index, ch ->
+				if (ch == '#') {
+					lightDiagram = lightDiagram or (1 shl index)
+				}
+			}
+			val buttonWirings = buttonWiringsStr.split(") (").map {
+				val wiringStr = it.trim('(', ')', ' ')
+				var buttonWiring = 0
+				val numbers = wiringStr.split(",").map(String::toInt)
+				for (num in numbers) {
+					buttonWiring = buttonWiring or (1 shl num)
+				}
+				buttonWiring
+			}.toIntArray()
+			val joltageRequirements = joltageRequirementsStr.split(",").map { it.trim().toInt() }.toIntArray()
+			val machine = Machine(lightDiagram, buttonWirings, joltageRequirements)
+			machines.add(machine)
+		} else {
+			throw IllegalArgumentException("Line does not match expected format: $line")
+		}
+	}
+	return machines
 }
 
 // Non-repeat combinations of k elements from the list
@@ -96,38 +60,15 @@ fun <T> List<T>.combinations(k: Int): List<List<T>> {
 	return tail.combinations(k - 1).map { listOf(head) + it } + tail.combinations(k)
 }
 
-fun preProcessData(lines: List<String>): List<Machine> {
-	val machineInfoRegex = """\[([.#]+)] ([(\d,) ]+) \{([\d,]+)}""".toRegex()
-	val machines = mutableListOf<Machine>()
-	for (line in lines) {
-		val matchResult = machineInfoRegex.find(line)
-		if (matchResult != null) {
-			val (lightDiagramStr, buttonWiringsStr, joltageRequirementsStr) = matchResult.destructured
-			// Further processing can be done here if needed
-			val lightDiagram = LightDiagram.fromString(lightDiagramStr)
-			val buttonWirings = buttonWiringsStr.split(") (").map {
-				val wiringStr = it.trim('(', ')', ' ')
-				Button.fromString(wiringStr)
-			}
-			val joltageRequirements = JoltageRequirements.fromString(joltageRequirementsStr)
-			val machine = Machine(lightDiagram, buttonWirings, joltageRequirements)
-			machines.add(machine)
-		} else {
-			throw IllegalArgumentException("Line does not match expected format: $line")
-		}
-	}
-	return machines
-}
-
 private fun getLowestButtonSequenceSize(machine: Machine): Int {
 	for (k in 1..machine.buttons.size) {
 		val combinations = machine.buttonCombinationsOfSize(k)
 		for (combination in combinations) {
-			val testDiagram = LightDiagram(machine.lightDiagram.target, machine.lightDiagram.length)
+			var indicators = 0
 			for (button in combination) {
-				testDiagram.applyButton(button)
+				indicators = indicators xor button
 			}
-			if (testDiagram.indicators == machine.lightDiagram.target) {
+			if (indicators == machine.targetLights) {
 				return k
 			}
 		}
@@ -142,12 +83,12 @@ fun part1(machines: List<Machine>): Int {
 fun getMinButtonPresses(machine: Machine): Int {
 	// Simplify equation system using Gauss-Jordan elimination.
 	val mat = buildEquationMatrix(machine)
-	val (nRows, nCols) = Pair(machine.joltageRequirements.requiredJoltage.size, machine.buttons.size + 1)
+	val (nRows, nCols) = Pair(machine.joltages.size, machine.buttons.size + 1)
 	val (pivotColumns, freeVariables) = gaussJordanElimination(mat, nRows, nCols)
 	// Get upper bounds of free variables (the maximum number of times each button can be pressed).
 	val upperBounds = freeVariables.map { col ->
-		val buttonWiring = machine.buttons[col].wiring
-		machine.joltageRequirements.requiredJoltage
+		val buttonWiring = machine.buttons[col]
+		machine.joltages
 			.filterIndexed { r, _ -> (buttonWiring and (1 shl r)) != 0 }
 			.min()
 	}
@@ -182,6 +123,18 @@ fun getMinButtonPresses(machine: Machine): Int {
 	return currentBest
 }
 
+private fun buildEquationMatrix(machine: Machine): Array<DoubleArray> {
+	val mat = Array(machine.joltages.size) { DoubleArray(machine.buttons.size + 1) }
+	for ((r, joltage) in machine.joltages.withIndex()) {
+		for ((c, button) in machine.buttons.withIndex()) {
+			val isToggling = button and (1 shl r) != 0
+			mat[r][c] = if (isToggling) 1.0 else 0.0
+		}
+		mat[r][machine.buttons.size] = joltage.toDouble()
+	}
+	return mat
+}
+
 // Solve 𝐴𝑥 = b for x
 // e.g. [.##.] (3) (1,3) (2) (2,3) (0,2) (0,1) {3,5,4,7}
 // 0*x0 + 0*x1 + 0*x2 + 0*x3 + 1*x4 + 1*x5 = 3
@@ -196,7 +149,7 @@ private fun gaussJordanElimination(
 	val pivotColumns = mutableListOf<Int>()
 	val freeVariables = mutableListOf<Int>()
 	var pivotRow = 0
-	for (col in 0 until nCols) {
+	for (col in 0 until nCols - 1) {
 		// Remaining columns are free variables
 		if (pivotRow >= nRows) {
 			freeVariables.add(col)
@@ -241,6 +194,13 @@ private fun gaussJordanElimination(
 	return Pair(pivotColumns, freeVariables)
 }
 
+private fun swapRows(mat: Array<DoubleArray>, r1: Int, r2: Int) {
+	val row1 = mat[r1]
+	val row2 = mat[r2]
+	mat[r2] = row1
+	mat[r1] = row2
+}
+
 /**
  * Yields every possible combination for x variables and their upper bounds.
  * The length of the upperBounds list is its amount of variables.
@@ -257,25 +217,6 @@ fun variableCombinations(upperBounds: List<Int>): Sequence<List<Int>> = sequence
 		if (i < 0) break
 		current[i]++
 	}
-}
-
-private fun buildEquationMatrix(machine: Machine): Array<DoubleArray> {
-	val mat = Array(machine.joltageRequirements.requiredJoltage.size) { DoubleArray(machine.buttons.size + 1) }
-	for ((r, joltage) in machine.joltageRequirements.requiredJoltage.withIndex()) {
-		for ((c, button) in machine.buttons.withIndex()) {
-			val isToggling = button.wiring and (1 shl r) != 0
-			mat[r][c] = if (isToggling) 1.0 else 0.0
-		}
-		mat[r][machine.buttons.size] = joltage.toDouble()
-	}
-	return mat
-}
-
-private fun swapRows(mat: Array<DoubleArray>, r1: Int, r2: Int) {
-	val row1 = mat[r1]
-	val row2 = mat[r2]
-	mat[r2] = row1
-	mat[r1] = row2
 }
 
 fun part2(machines: List<Machine>): Int {
